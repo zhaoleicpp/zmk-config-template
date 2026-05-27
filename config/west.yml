@@ -1,12 +1,33 @@
-manifest:
-  remotes:
-    - name: zmkfirmware
-      url-base: https://github.com/zmkfirmware
-  projects:
-    - name: zmk
-      remote: zmkfirmware
-      revision: main
-      import: app/west.yml
-  self:
-    path: config
- 
+name: Build ZMK Firmware
+
+on:
+  push:
+    paths-ignore:
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: zmkfirmware/zmk-build-essential:latest
+    name: Build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4   # 建议也更新到 v4
+      - name: Initialize west workspace
+        run: west init -l config
+      - name: Update west modules
+        run: west update
+      - name: Build firmware
+        run: |
+          west build -s zmk/app -b nice_nano_v2 -- -DSHIELD=settings_reset
+          cp build/zephyr/zmk.uf2 settings_reset-nice_nano_v2.uf2
+          west build -s zmk/app -b nice_nano_v2 -p auto
+          cp build/zephyr/zmk.uf2 firmware-nice_nano_v2.uf2
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4   # 核心修改：v2 改为 v4
+        with:
+          name: firmware
+          path: |
+            settings_reset-nice_nano_v2.uf2
+            firmware-nice_nano_v2.uf2
